@@ -1,0 +1,32 @@
+apiVersion: agones.dev/v1
+kind: GameServer
+metadata:
+  name: networking-lab-ngo
+  labels:
+    lab.unity/network-stack: ngo
+spec:
+  ports:
+    - name: game
+      portPolicy: Static
+      containerPort: 7979
+      hostPort: 7979
+      protocol: UDP
+  health:
+    initialDelaySeconds: 30
+    periodSeconds: 5
+    failureThreshold: 5
+  template:
+    spec:
+      nodeSelector:
+        kubernetes.io/arch: amd64
+      containers:
+        - name: unity-server
+          image: networking-lab-ngo:local
+          imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi

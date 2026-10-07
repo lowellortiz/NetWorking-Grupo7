@@ -1,0 +1,111 @@
+using System.Collections.Generic;
+using Unity.Collections;
+using Unity.Entities;
+using Unity.NetCode;
+using UnityEngine;
+
+namespace NetworkingLab.NFE
+{
+    /// <summary>
+    /// Converts replicated ECS state into deliberately simple local GameObject visuals.
+    /// The GameObjects are presentation only; movement and ownership remain in NFE.
+    /// </summary>
+    public sealed class NfePresentationBridge : MonoBehaviour
+    {
+        private readonly Dictionary<Entity, GameObject> visuals = new();
+
+        private void LateUpdate()
+        {
+            World client = ClientServerBootstrap.ClientWorld;
+            if (client == null || !client.IsCreated)
+            {
+                return;
+            }
+
+            EntityManager entityManager = client.EntityManager;
+            EntityQuery query = entityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<NfePlayerTag>(),
+                ComponentType.ReadOnly<NfePlayerState>());
+
+            NativeArray<Entity> entities = query.ToEntityArray(Allocator.Temp);
+            HashSet<Entity> live = new HashSet<Entity>();
+            foreach (Entity entity in entities)
+            {
+                live.Add(entity);
+                NfePlayerState state = entityManager.GetComponentData<NfePlayerState>(entity);
+
+                if (!visuals.TryGetValue(entity, out GameObject visual))
+                {
+                    visual = CreateVisual(state.PlayerNumber);
+                    visuals.Add(entity, visual);
+                }
+
+                visual.transform.position = new Vector3(state.Position.x, 0.75f, state.Position.y);
+            }
+
+            entities.Dispose();
+            query.Dispose();
+
+            List<Entity> removed = new List<Entity>();
+            foreach (KeyValuePair<Entity, GameObject> pair in visuals)
+            {
+                if (!live.Contains(pair.Key))
+                {
+                    Destroy(pair.Value);
+                    removed.Add(pair.Key);
+                }
+            }
+
+            foreach (Entity entity in removed)
+            {
+                visuals.Remove(entity);
+            }
+        }
+
+        private void OnDestroy()
+        {
+            foreach (GameObject visual in visuals.Values)
+            {
+                if (visual != null)
+                {
+                    Destroy(visual);
+                }
+            }
+
+            visuals.Clear();
+        }
+
+        private static GameObject CreateVisual(int playerNumber)
+        {
+            GameObject visual = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+            visual.name = $"NFE Player {playerNumber} Visual";
+            Destroy(visual.GetComponent<Collider>());
+            visual.GetComponent<Renderer>().material.color = PlayerColor(playerNumber);
+
+            GameObject labelObject = new GameObject("Label");
+            labelObject.transform.SetParent(visual.transform, false);
+            labelObject.transform.localPosition = new Vector3(0f, 1.5f, 0f);
+            labelObject.transform.localRotation = Quaternion.Euler(52f, 0f, 0f);
+            TextMesh label = labelObject.AddComponent<TextMesh>();
+            label.text = $"Player {playerNumber}";
+            label.anchor = TextAnchor.MiddleCenter;
+            label.alignment = TextAlignment.Center;
+            label.fontSize = 42;
+            label.characterSize = 0.08f;
+            label.color = Color.white;
+            return visual;
+        }
+
+        private static Color PlayerColor(int number)
+        {
+            Color[] colors =
+            {
+                new(0.1f, 0.55f, 1f),
+                new(1f, 0.25f, 0.2f),
+                new(0.25f, 0.85f, 0.35f),
+                new(1f, 0.72f, 0.12f)
+            };
+            return colors[(Mathf.Max(1, number) - 1) % colors.Length];
+        }
+    }
+}

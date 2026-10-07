@@ -1,0 +1,49 @@
+# Unity generated folders
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+/Assets/TutorialInfo/Layout.wlt
+/.utmp/
+
+# IDE and generated project files
+/.DS_Store
+/.vs/
+/.vscode/
+/.idea/
+*.csproj
+*.sln
+*.slnx
+*.suo
+*.tmp
+~$*
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# Unity generated/debug output
+/[Mm]emoryCaptures/
+/[Rr]ecordings/
+sysinfo.txt
+*.log
+
+# Builds and packages
+*.apk
+*.aab
+*.app
+*.unitypackage
+*.unitypackage.meta
+
+# Addressables generated content
+/[Aa]ssets/[Aa]ddressable[Aa]ssets[Dd]ata/*/*.bin*
+/[Aa]ssets/[Ss]treamingAssets/aa.meta
+/[Aa]ssets/[Ss]treamingAssets/aa/

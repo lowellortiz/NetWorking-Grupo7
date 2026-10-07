@@ -1,0 +1,28 @@
+{
+  "name": "NetworkingLab.NFE",
+  "rootNamespace": "NetworkingLab.NFE",
+  "references": [
+    "NetworkingLab",
+    "Unity.Collections",
+    "Unity.Entities",
+    "Unity.Entities.Hybrid",
+    "Unity.Mathematics",
+    "Unity.NetCode",
+    "Unity.NetCode.Authoring.Hybrid",
+    "Unity.Networking.Transport",
+    "Unity.Scenes",
+    "Unity.Transforms",
+    "Unity.InputSystem",
+    "Unity.Jobs",
+    "Unity.ugui"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
