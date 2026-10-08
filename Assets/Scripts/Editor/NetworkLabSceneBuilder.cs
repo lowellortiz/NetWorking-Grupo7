@@ -216,7 +216,9 @@ namespace NetworkingLab.Editor
             RectTransform buttonsRect = (RectTransform)buttons.transform;
             buttonsRect.anchorMin = new Vector2(0f, 1f);
             buttonsRect.anchorMax = new Vector2(0f, 1f);
-            buttonsRect.anchoredPosition = new Vector2(35f, -280f);
+            // Left pivot so the first button (x = 0, centred) stays inside the screen.
+            buttonsRect.pivot = new Vector2(0f, .5f);
+            buttonsRect.anchoredPosition = new Vector2(115f, -280f);
             buttonsRect.sizeDelta = new Vector2(900f, 50f);
 
             new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
@@ -229,6 +231,7 @@ namespace NetworkingLab.Editor
             inputObject.transform.SetParent(parent, false);
             RectTransform rect = (RectTransform)inputObject.transform;
             rect.anchorMin = rect.anchorMax = new Vector2(0f, 1f);
+            rect.pivot = new Vector2(0f, .5f);
             rect.anchoredPosition = position;
             rect.sizeDelta = new Vector2(360f, 46f);
             inputObject.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0.92f);

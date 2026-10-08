@@ -28,7 +28,8 @@ namespace NetworkingLab.NGO
 
         private void Awake()
         {
-            manager = NetworkManager.Singleton;
+            // Singleton may not be assigned yet if this Awake runs before NetworkManager's.
+            manager = NetworkManager.Singleton != null ? NetworkManager.Singleton : FindAnyObjectByType<NetworkManager>();
             addressInput.text = ReadArgument("-address", "127.0.0.1");
             portInput.text = ReadArgument("-port", DefaultPort.ToString());
 
