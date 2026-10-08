@@ -33,6 +33,11 @@ namespace NetworkingLab.NFE
             {
                 live.Add(entity);
                 NfePlayerState state = entityManager.GetComponentData<NfePlayerState>(entity);
+                // Espera al primer snapshot con identidad; evita etiquetas iniciales Player 0.
+                if (state.PlayerNumber <= 0)
+                {
+                    continue;
+                }
 
                 if (!visuals.TryGetValue(entity, out GameObject visual))
                 {

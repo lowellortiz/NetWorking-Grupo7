@@ -20,10 +20,18 @@ namespace NetworkingLab.NFE
                 return false;
             }
 
+            // Mantiene la simulación y la conexión activas al cambiar de ventana.
+            UnityEngine.Application.runInBackground = true;
             AutoConnectPort = 0;
             bool clientOnly = Array.Exists(Environment.GetCommandLineArgs(), arg =>
                 string.Equals(arg, "-client", StringComparison.OrdinalIgnoreCase));
 
+            // El build Dedicated Server debe crear solo ServerWorld, incluso sin -batchmode.
+#if UNITY_SERVER
+            CreateServerWorld("ServerWorld");
+#elif UNITY_CLIENT
+            CreateClientWorld("ClientWorld");
+#else
             if (clientOnly)
             {
                 CreateClientWorld("ClientWorld");
@@ -34,9 +42,10 @@ namespace NetworkingLab.NFE
             }
             else
             {
-                CreateServerWorld("ServerWorld");
-                CreateClientWorld("ClientWorld");
+                // Respeta Client/Server/ClientAndServer del PlayMode Tools de NetCode.
+                CreateDefaultClientServerWorlds();
             }
+#endif
 
             return true;
         }

@@ -1,0 +1,30 @@
+Archivos de la implementación NFE del Grupo 7
+
+Assets/Prefabs/NFEPlayer.prefab
+Assets/Scenes/NFE/NFEGameplaySubScene.unity
+Assets/Scripts/Editor/NfeBuildTools.cs
+Assets/Scripts/Editor/NfeBuildTools.cs.meta
+Assets/Scripts/NFE/NfeAgonesLifecycle.cs
+Assets/Scripts/NFE/NfeAgonesLifecycle.cs.meta
+Assets/Scripts/NFE/NfeBootstrap.cs
+Assets/Scripts/NFE/NfeComponents.cs
+Assets/Scripts/NFE/NfeConnectionUI.cs
+Assets/Scripts/NFE/NfeGameplaySystems.cs
+Assets/Scripts/NFE/NfePlayerAuthoring.cs
+Assets/Scripts/NFE/NfePlayerAuthoring.cs.meta
+Assets/Scripts/NFE/NfePlayerSpawnerAuthoring.cs
+Assets/Scripts/NFE/NfePlayerSpawnerAuthoring.cs.meta
+Assets/Scripts/NFE/NfePresentationBridge.cs
+Docs/NFE_ARCHIVOS_CAMBIADOS.txt
+Docs/NFE_GRUPO7_PASO_A_PASO.md
+Infrastructure/Containers/NFE/Dockerfile
+Infrastructure/README.md
+Infrastructure/Scripts/build-nfe-image.sh
+Infrastructure/Scripts/forward-nfe-udp.py
+Infrastructure/Scripts/start-nfe-clients.ps1
+Infrastructure/Scripts/start-nfe-server.ps1
+README.md
+
+Guía: Docs/NFE_GRUPO7_PASO_A_PASO.md
+Parche de estos archivos: Docs/NFE_Grupo7.patch
+El parche no se incluye a sí mismo. Los paquetes y el código NGO conservan el contenido recibido.

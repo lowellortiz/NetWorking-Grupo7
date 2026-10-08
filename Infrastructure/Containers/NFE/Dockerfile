@@ -1,7 +1,7 @@
 FROM debian:13-slim
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates libatomic1 libunwind8 \
+    && apt-get install -y --no-install-recommends ca-certificates libatomic1 libunwind8 libstdc++6 \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --create-home --uid 10001 unity
 
@@ -12,4 +12,4 @@ RUN chmod +x NetworkingLabNFEServer.x86_64 \
 
 USER unity
 EXPOSE 7980/udp
-ENTRYPOINT ["./NetworkingLabNFEServer.x86_64", "-batchmode", "-nographics", "-nfe", "-port", "7980"]
+ENTRYPOINT ["./NetworkingLabNFEServer.x86_64", "-batchmode", "-nographics", "-nfe", "-port", "7980", "-logFile", "-"]

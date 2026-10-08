@@ -2,7 +2,9 @@
 
 Este repositorio es un laboratorio universitario para construir y comprender un juego cliente-servidor con Unity. Compara el mismo gameplay mediante Netcode for GameObjects (NGO) y Netcode for Entities (NFE), y después lo lleva a un servidor Linux, contenedor, Kubernetes y Agones.
 
-No es una solución multijugador terminada. El baseline local funciona y las escenas de red son bases estables con siete actividades `STUDENT TODO` que el estudiante debe completar.
+Esta copia incorpora las cuatro actividades NFE del Grupo 7. Los tres `STUDENT TODO` de NGO siguen pendientes para el responsable de esa parte. La compilación, los builds y la demostración con cuatro clientes deben ejecutarse en Unity y en Debian.
+
+**Para trabajar la parte NFE, comienza por [NFE Grupo 7: paso a paso](Docs/NFE_GRUPO7_PASO_A_PASO.md).**
 
 ## Qué aprenderás
 
@@ -38,15 +40,15 @@ El proyecto usa URP 17.6.0, Input System 1.20.0, NGO 2.13.3 embebido y Netcode f
 
 ## Trabajo deliberadamente pendiente
 
-Los siete objetivos se conservan en código con el marcador `STUDENT TODO`:
+Estado de los objetivos de programación:
 
 1. NGO-01: enviar input del owner al servidor.
 2. NGO-02: validar y aplicar movimiento autoritativo.
 3. NGO-03: solicitar, validar y distribuir PowerUp mediante RPC.
-4. NFE-01: abrir `Listen` y realizar `Connect`.
-5. NFE-02: entrar InGame, crear Ghost y establecer ownership.
-6. NFE-03: mover en la simulación predicha.
-7. NFE-04: procesar PowerUp y distribuir el resultado mediante RPC.
+4. NFE-01: `Listen` y `Connect` implementados; pendiente prueba en Unity.
+5. NFE-02: InGame, Ghost y ownership implementados; pendiente prueba en Unity.
+6. NFE-03: movimiento predicho implementado; pendiente prueba en Unity.
+7. NFE-04: PowerUp por RPC implementado; pendiente prueba en Unity.
 
 La guía explica el código y cómo comprobar cada actividad. No copies una solución sin ejecutar y observar cada flujo.
 
@@ -72,12 +74,12 @@ Incluido ahora:
 
 Trabajo del estudiante:
 
-- complete the seven `STUDENT TODO` activities;
+- complete and verify the three NGO activities, and verify the four implemented NFE activities;
 - create Linux Dedicated Server builds;
 - prepare Debian and host-only networking;
 - build the server container;
 - install Minikube and Agones;
-- integrate the Agones lifecycle;
+- verify the NFE Agones lifecycle already implemented, and integrate the NGO lifecycle;
 - deploy a GameServer and connect four clients.
 
 Este starter no genera ni ejecuta un build Dedicated Server, una VM, una imagen de contenedor, un cluster Kubernetes ni un despliegue Agones.

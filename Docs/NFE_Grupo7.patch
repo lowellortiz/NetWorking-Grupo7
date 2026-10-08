@@ -1,0 +1,1491 @@
+diff --git a/Assets/Prefabs/NFEPlayer.prefab b/Assets/Prefabs/NFEPlayer.prefab
+index e30c2bf..6865fa5 100644
+--- a/Assets/Prefabs/NFEPlayer.prefab
++++ b/Assets/Prefabs/NFEPlayer.prefab
+@@ -43,7 +43,7 @@ MonoBehaviour:
+   m_GameObject: {fileID: 1461669594183616660}
+   m_Enabled: 1
+   m_EditorHideFlags: 0
+-  m_Script: {fileID: 0}
++  m_Script: {fileID: 11500000, guid: 68f9318f1fa04f9ca6c91bfa5a0c4c12, type: 3}
+   m_Name: 
+   m_EditorClassIdentifier: NetworkingLab.NFE::NetworkingLab.NFE.NfePlayerAuthoring
+ --- !u!114 &9211627303098542801
+diff --git a/Assets/Scenes/NFE/NFEGameplaySubScene.unity b/Assets/Scenes/NFE/NFEGameplaySubScene.unity
+index 5787b0e..88cc7f7 100644
+--- a/Assets/Scenes/NFE/NFEGameplaySubScene.unity
++++ b/Assets/Scenes/NFE/NFEGameplaySubScene.unity
+@@ -145,7 +145,7 @@ MonoBehaviour:
+   m_GameObject: {fileID: 1004638022}
+   m_Enabled: 1
+   m_EditorHideFlags: 0
+-  m_Script: {fileID: 1234382619}
++  m_Script: {fileID: 11500000, guid: 85ecde24502d4eef96a2ebc5774e48dc, type: 3}
+   m_Name: 
+   m_EditorClassIdentifier: NetworkingLab.NFE::NetworkingLab.NFE.NfePlayerSpawnerAuthoring
+   playerPrefab: {fileID: 1461669594183616660, guid: 827776f25ce0d417cb5da3b33299bf72, type: 3}
+@@ -164,21 +164,6 @@ Transform:
+   m_Children: []
+   m_Father: {fileID: 0}
+   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+---- !u!115 &1234382619
+-MonoScript:
+-  m_ObjectHideFlags: 0
+-  m_CorrespondingSourceObject: {fileID: 0}
+-  m_PrefabInstance: {fileID: 0}
+-  m_PrefabAsset: {fileID: 0}
+-  m_Name: 
+-  serializedVersion: 7
+-  m_DefaultReferences: {}
+-  m_Icon: {fileID: 0}
+-  m_Type: 0
+-  m_ExecutionOrder: 0
+-  m_ClassName: NfePlayerSpawnerAuthoring
+-  m_Namespace: NetworkingLab.NFE
+-  m_AssemblyName: NetworkingLab.NFE
+ --- !u!1660057539 &9223372036854775807
+ SceneRoots:
+   m_ObjectHideFlags: 0
+diff --git a/Assets/Scripts/Editor/NfeBuildTools.cs b/Assets/Scripts/Editor/NfeBuildTools.cs
+new file mode 100644
+index 0000000..3799538
+--- /dev/null
++++ b/Assets/Scripts/Editor/NfeBuildTools.cs
+@@ -0,0 +1,77 @@
++using System.IO;
++using UnityEditor;
++using UnityEditor.Build;
++using UnityEditor.Build.Reporting;
++using UnityEditor.SceneManagement;
++using UnityEngine;
++
++namespace NetworkingLab.Editor
++{
++    public static class NfeBuildTools
++    {
++        [MenuItem("Networking Lab/NFE/Build Windows Client")]
++        public static void BuildWindowsClient()
++        {
++            Build(BuildTarget.StandaloneWindows64, StandaloneBuildSubtarget.Player,
++                "Builds/NFE-WindowsClient/NetworkingLabNFEClient.exe");
++        }
++
++        [MenuItem("Networking Lab/NFE/Build Windows Server")]
++        public static void BuildWindowsServer()
++        {
++            Build(BuildTarget.StandaloneWindows64, StandaloneBuildSubtarget.Server,
++                "Builds/NFE-WindowsServer/NetworkingLabNFEServer.exe");
++        }
++
++        [MenuItem("Networking Lab/NFE/Build Linux Server")]
++        public static void BuildLinuxServer()
++        {
++            Build(BuildTarget.StandaloneLinux64, StandaloneBuildSubtarget.Server,
++                "Builds/NFE-LinuxServer/NetworkingLabNFEServer.x86_64");
++        }
++
++        private static void Build(BuildTarget target, StandaloneBuildSubtarget subtarget, string output)
++        {
++            if (EditorApplication.isPlayingOrWillChangePlaymode)
++            {
++                throw new BuildFailedException("Detén Play antes de generar el build NFE.");
++            }
++
++            if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
++            if (!BuildPipeline.IsBuildTargetSupported(BuildTargetGroup.Standalone, target))
++            {
++                throw new BuildFailedException("Instala el módulo de esta plataforma en Unity Hub.");
++            }
++
++            Directory.CreateDirectory(Path.GetDirectoryName(output));
++            InsecureHttpOption previousHttpOption = PlayerSettings.insecureHttpOption;
++            try
++            {
++                // El REST SDK de Agones usa HTTP en loopback dentro del mismo Pod.
++                if (subtarget == StandaloneBuildSubtarget.Server)
++                {
++                    PlayerSettings.insecureHttpOption = InsecureHttpOption.AlwaysAllowed;
++                }
++
++                BuildReport report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
++                {
++                    scenes = new[] { NetworkLabSceneBuilder.NfeScenePath },
++                    locationPathName = output,
++                    target = target,
++                    subtarget = (int)subtarget,
++                    options = BuildOptions.None
++                });
++                if (report.summary.result != BuildResult.Succeeded)
++                {
++                    throw new BuildFailedException($"Build NFE falló: {report.summary.result}. Revisa la consola.");
++                }
++
++                Debug.Log($"NFE_BUILD: {output}");
++            }
++            finally
++            {
++                PlayerSettings.insecureHttpOption = previousHttpOption;
++            }
++        }
++    }
++}
+diff --git a/Assets/Scripts/Editor/NfeBuildTools.cs.meta b/Assets/Scripts/Editor/NfeBuildTools.cs.meta
+new file mode 100644
+index 0000000..0cf3983
+--- /dev/null
++++ b/Assets/Scripts/Editor/NfeBuildTools.cs.meta
+@@ -0,0 +1,2 @@
++fileFormatVersion: 2
++guid: 3cda67a605e84765a84ccf11a305ac76
+diff --git a/Assets/Scripts/NFE/NfeAgonesLifecycle.cs b/Assets/Scripts/NFE/NfeAgonesLifecycle.cs
+new file mode 100644
+index 0000000..7d643bc
+--- /dev/null
++++ b/Assets/Scripts/NFE/NfeAgonesLifecycle.cs
+@@ -0,0 +1,96 @@
++using System;
++using System.Collections;
++using System.Text;
++using Unity.Entities;
++using UnityEngine;
++using UnityEngine.Networking;
++
++namespace NetworkingLab.NFE
++{
++    /// <summary>Ready y Health mediante el REST SDK local de Agones.</summary>
++    public sealed class NfeAgonesLifecycle : MonoBehaviour
++    {
++        private World serverWorld;
++        private string sdkUrl;
++        private bool started;
++        private bool healthReported;
++        private bool healthFailed;
++
++        public void Begin(World server)
++        {
++            if (started) return;
++            string value = Environment.GetEnvironmentVariable("AGONES_SDK_HTTP_PORT");
++            if (!ushort.TryParse(value, out ushort port) || port == 0) return;
++
++            started = true;
++            serverWorld = server;
++            sdkUrl = $"http://127.0.0.1:{port}";
++            StartCoroutine(ReportHealth());
++            StartCoroutine(ReportReady());
++        }
++
++        private IEnumerator ReportReady()
++        {
++            // Listen ya tuvo éxito. Falta que la SubScene termine de cargar el prefab.
++            while (ServerExists() && !SpawnerReady()) yield return new WaitForSecondsRealtime(0.5f);
++            bool ready = false;
++            while (ServerExists() && !ready)
++            {
++                yield return Post("/ready", success => ready = success);
++                if (!ready) yield return new WaitForSecondsRealtime(2f);
++            }
++
++            if (ready) Debug.Log("NFE_AGONES: Ready accepted");
++        }
++
++        private IEnumerator ReportHealth()
++        {
++            // Los latidos también cubren la carga inicial y reintentan si el sidecar inicia después.
++            while (ServerExists())
++            {
++                yield return Post("/health", success =>
++                {
++                    if (success && (!healthReported || healthFailed))
++                    {
++                        Debug.Log("NFE_AGONES: Health accepted");
++                        healthReported = true;
++                    }
++                    else if (!success && !healthFailed)
++                    {
++                        Debug.LogWarning("NFE_AGONES: waiting for REST SDK; health will retry");
++                    }
++
++                    healthFailed = !success;
++                });
++                yield return new WaitForSecondsRealtime(2f);
++            }
++        }
++
++        private bool ServerExists()
++        {
++            return serverWorld != null && serverWorld.IsCreated;
++        }
++
++        private bool SpawnerReady()
++        {
++            using EntityQuery query = serverWorld.EntityManager.CreateEntityQuery(
++                ComponentType.ReadOnly<NfePlayerSpawner>());
++            query.CompleteDependency();
++            if (query.IsEmptyIgnoreFilter) return false;
++            Entity prefab = query.GetSingleton<NfePlayerSpawner>().PlayerPrefab;
++            return serverWorld.EntityManager.Exists(prefab)
++                && serverWorld.EntityManager.HasComponent<NfePlayerState>(prefab);
++        }
++
++        private IEnumerator Post(string path, Action<bool> completed)
++        {
++            using UnityWebRequest request = new(sdkUrl + path, "POST");
++            request.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes("{}"));
++            request.downloadHandler = new DownloadHandlerBuffer();
++            request.timeout = 2;
++            request.SetRequestHeader("Content-Type", "application/json");
++            yield return request.SendWebRequest();
++            completed(request.result == UnityWebRequest.Result.Success);
++        }
++    }
++}
+diff --git a/Assets/Scripts/NFE/NfeAgonesLifecycle.cs.meta b/Assets/Scripts/NFE/NfeAgonesLifecycle.cs.meta
+new file mode 100644
+index 0000000..0de4385
+--- /dev/null
++++ b/Assets/Scripts/NFE/NfeAgonesLifecycle.cs.meta
+@@ -0,0 +1,2 @@
++fileFormatVersion: 2
++guid: a5f71b8d9d974dd3a3b32674c45f5be2
+diff --git a/Assets/Scripts/NFE/NfeBootstrap.cs b/Assets/Scripts/NFE/NfeBootstrap.cs
+index 2a7e1c9..8fdaf6a 100644
+--- a/Assets/Scripts/NFE/NfeBootstrap.cs
++++ b/Assets/Scripts/NFE/NfeBootstrap.cs
+@@ -24,6 +24,12 @@ namespace NetworkingLab.NFE
+             bool clientOnly = Array.Exists(Environment.GetCommandLineArgs(), arg =>
+                 string.Equals(arg, "-client", StringComparison.OrdinalIgnoreCase));
+ 
++            // El build Dedicated Server debe crear solo ServerWorld, incluso sin -batchmode.
++#if UNITY_SERVER
++            CreateServerWorld("ServerWorld");
++#elif UNITY_CLIENT
++            CreateClientWorld("ClientWorld");
++#else
+             if (clientOnly)
+             {
+                 CreateClientWorld("ClientWorld");
+@@ -34,9 +40,10 @@ namespace NetworkingLab.NFE
+             }
+             else
+             {
+-                CreateServerWorld("ServerWorld");
+-                CreateClientWorld("ClientWorld");
++                // Respeta Client/Server/ClientAndServer del PlayMode Tools de NetCode.
++                CreateDefaultClientServerWorlds();
+             }
++#endif
+ 
+             return true;
+         }
+diff --git a/Assets/Scripts/NFE/NfeComponents.cs b/Assets/Scripts/NFE/NfeComponents.cs
+index a2a8687..9235a54 100644
+--- a/Assets/Scripts/NFE/NfeComponents.cs
++++ b/Assets/Scripts/NFE/NfeComponents.cs
+@@ -1,7 +1,6 @@
+ using Unity.Entities;
+ using Unity.Mathematics;
+ using Unity.NetCode;
+-using UnityEngine;
+ 
+ namespace NetworkingLab.NFE
+ {
+@@ -21,44 +20,9 @@ namespace NetworkingLab.NFE
+         public InputEvent PowerUp;
+     }
+ 
+-    public sealed class NfePlayerAuthoring : MonoBehaviour
+-    {
+-        private sealed class NfePlayerBaker : Baker<NfePlayerAuthoring>
+-        {
+-            public override void Bake(NfePlayerAuthoring authoring)
+-            {
+-                Entity entity = GetEntity(TransformUsageFlags.None);
+-                AddComponent<NfePlayerTag>(entity);
+-                AddComponent<NfePlayerState>(entity);
+-                AddComponent<NfePlayerInput>(entity);
+-            }
+-        }
+-    }
+-
+     public struct NfePlayerSpawner : IComponentData
+     {
+         public Entity PlayerPrefab;
+     }
+ 
+-    public sealed class NfePlayerSpawnerAuthoring : MonoBehaviour
+-    {
+-        [SerializeField] private GameObject playerPrefab;
+-
+-        public void Configure(GameObject prefab)
+-        {
+-            playerPrefab = prefab;
+-        }
+-
+-        private sealed class NfePlayerSpawnerBaker : Baker<NfePlayerSpawnerAuthoring>
+-        {
+-            public override void Bake(NfePlayerSpawnerAuthoring authoring)
+-            {
+-                Entity entity = GetEntity(TransformUsageFlags.None);
+-                AddComponent(entity, new NfePlayerSpawner
+-                {
+-                    PlayerPrefab = GetEntity(authoring.playerPrefab, TransformUsageFlags.Dynamic)
+-                });
+-            }
+-        }
+-    }
+ }
+diff --git a/Assets/Scripts/NFE/NfeConnectionUI.cs b/Assets/Scripts/NFE/NfeConnectionUI.cs
+index e1090f0..73146c6 100644
+--- a/Assets/Scripts/NFE/NfeConnectionUI.cs
++++ b/Assets/Scripts/NFE/NfeConnectionUI.cs
+@@ -1,5 +1,5 @@
+ using System;
+-using Unity.Collections;
++using System.Collections;
+ using Unity.Entities;
+ using Unity.NetCode;
+ using Unity.Networking.Transport;
+@@ -8,7 +8,7 @@ using UnityEngine.UI;
+ 
+ namespace NetworkingLab.NFE
+ {
+-    /// <summary>Creates explicit NFE listen/connect requests from editable address and port fields.</summary>
++    /// <summary>Conexión NFE explícita, con campos editables y arranque headless.</summary>
+     public sealed class NfeConnectionUI : MonoBehaviour
+     {
+         public const ushort DefaultPort = 7980;
+@@ -18,6 +18,14 @@ namespace NetworkingLab.NFE
+         [SerializeField] private Text statusText;
+         [SerializeField] private Text localPlayerText;
+ 
++        private World listeningServer;
++        private ushort listeningPort;
++        private World connectionWorld;
++        private Entity connectionEntity;
++        private string connectedEndpoint;
++        private bool connectionPending;
++        private bool wasConnected;
++
+         public void Configure(InputField address, InputField port, Text status, Text localPlayer)
+         {
+             addressInput = address;
+@@ -26,56 +34,100 @@ namespace NetworkingLab.NFE
+             localPlayerText = localPlayer;
+         }
+ 
+-        private void Start()
++        private IEnumerator Start()
+         {
+-            addressInput.text = ReadArgument("-address", "127.0.0.1");
+-            portInput.text = ReadArgument("-port", DefaultPort.ToString());
+-
+-            if (HasArgument("-client"))
+-            {
+-                ConnectClient();
+-            }
+-            else if (Application.isBatchMode)
+-            {
+-                StartServer();
+-            }
+-            else
+-            {
+-                SetStatus("Offline");
+-            }
++            if (addressInput != null) addressInput.text = ReadArgument("-address", "127.0.0.1");
++            if (portInput != null) portInput.text = ReadArgument("-port", DefaultPort.ToString());
++            SetLocalPlayer("Local player: none");
++            SetStatus("Offline");
++
++            // Espera a que los Worlds y sus singletons de transporte estén inicializados.
++            yield return null;
++#if UNITY_SERVER
++            StartServer();
++#else
++            if (HasArgument("-client")) ConnectClient();
++            else if (Application.isBatchMode) StartServer();
++#endif
+         }
+ 
+         private void Update()
+         {
+             World client = ClientServerBootstrap.ClientWorld;
+-            if (client == null || !client.IsCreated)
+-            {
+-                return;
+-            }
++            if (client == null || !client.IsCreated) return;
+ 
+-            EntityQuery query = client.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<NetworkId>());
++            using EntityQuery query = client.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<NetworkId>());
++            query.CompleteDependency();
+             if (!query.IsEmptyIgnoreFilter)
+             {
+                 int networkId = query.GetSingleton<NetworkId>().Value;
+-                localPlayerText.text = $"Local client ID: {networkId}";
+-                statusText.text = $"Status: Connected to {addressInput.text}:{ReadPort()}";
++                SetLocalPlayer($"Local client ID: {networkId}");
++                if (!wasConnected)
++                {
++                    SetStatus($"Connected to {connectedEndpoint}");
++                    wasConnected = true;
++                    connectionPending = false;
++                }
++            }
++            else if (wasConnected || (connectionPending && !ConnectionExists()))
++            {
++                SetLocalPlayer("Local player: none");
++                SetStatus("Disconnected. Check the server, Address and Port before reconnecting.");
++                wasConnected = false;
++                connectionPending = false;
+             }
+-
+-            query.Dispose();
+         }
+ 
+         public void StartServer()
++        {
++            TryStartServer();
++        }
++
++        private bool TryStartServer()
+         {
+             World server = ClientServerBootstrap.ServerWorld;
+             if (server == null || !server.IsCreated)
+             {
+-                SetStatus("Server World is not available in this play mode");
+-                return;
++                SetStatus("Server World is not available. Check NetCode PlayMode Tools.");
++                return false;
++            }
++
++            if (!TryReadPort(out ushort port)) return false;
++            if (listeningServer == server)
++            {
++                if (listeningPort != port)
++                {
++                    SetStatus($"Server already listens on UDP {listeningPort}. Stop Play to change it.");
++                    return false;
++                }
++                return true;
++            }
++
++            // NFE-01: una consulta RW obtiene el singleton, no un componente sin entidad.
++            using EntityQuery driverQuery = server.EntityManager.CreateEntityQuery(
++                ComponentType.ReadWrite<NetworkStreamDriver>());
++            if (driverQuery.IsEmptyIgnoreFilter)
++            {
++                SetStatus("Server transport is not ready yet. Try again after initialization.");
++                return false;
++            }
++
++            driverQuery.CompleteDependency();
++            bool listening = driverQuery.GetSingletonRW<NetworkStreamDriver>().ValueRW
++                .Listen(NetworkEndpoint.AnyIpv4.WithPort(port));
++            if (!listening)
++            {
++                SetStatus($"Could not listen on UDP {port}. Check whether another server uses it.");
++                return false;
+             }
+ 
+-            SetStatus($"Server endpoint prepared on UDP {ReadPort()}");
+-            // STUDENT TODO NFE-01: obtain NetworkStreamDriver from ServerWorld and call
+-            // Listen(NetworkEndpoint.AnyIpv4.WithPort(ReadPort())).
++            listeningServer = server;
++            listeningPort = port;
++            SetStatus($"Server listening on UDP {port}");
++            NfeAgonesLifecycle lifecycle = GetComponent<NfeAgonesLifecycle>();
++            if (lifecycle == null) lifecycle = gameObject.AddComponent<NfeAgonesLifecycle>();
++            lifecycle.Begin(server);
++            return true;
+         }
+ 
+         public void ConnectClient()
+@@ -87,40 +139,86 @@ namespace NetworkingLab.NFE
+                 return;
+             }
+ 
+-            NetworkEndpoint endpoint = NetworkEndpoint.Parse(addressInput.text.Trim(), ReadPort());
+-            SetStatus($"Client endpoint prepared for {addressInput.text.Trim()}:{ReadPort()}");
+-            // STUDENT TODO NFE-01: obtain NetworkStreamDriver from ClientWorld and call
+-            // Connect(client.EntityManager, endpoint). The endpoint above is ready to use.
++            if (!TryReadPort(out ushort port)) return;
++            string address = ReadAddress();
++            if (!NetworkEndpoint.TryParse(address, port, out NetworkEndpoint endpoint, NetworkFamily.Ipv4))
++            {
++                SetStatus("Invalid Address. Enter an IPv4 address, for example 127.0.0.1.");
++                return;
++            }
++
++            using EntityQuery connections = client.EntityManager.CreateEntityQuery(
++                ComponentType.ReadOnly<NetworkStreamConnection>());
++            if (!connections.IsEmptyIgnoreFilter)
++            {
++                SetStatus("Client is already connected or connecting");
++                return;
++            }
++
++            // NFE-01: Connect inicia la conexión; NetworkId confirma el handshake después.
++            using EntityQuery driverQuery = client.EntityManager.CreateEntityQuery(
++                ComponentType.ReadWrite<NetworkStreamDriver>());
++            if (driverQuery.IsEmptyIgnoreFilter)
++            {
++                SetStatus("Client transport is not ready yet. Try again after initialization.");
++                return;
++            }
++
++            driverQuery.CompleteDependency();
++            connectionEntity = driverQuery.GetSingletonRW<NetworkStreamDriver>().ValueRW
++                .Connect(client.EntityManager, endpoint);
++            connectionWorld = client;
++            connectedEndpoint = $"{address}:{port}";
++            connectionPending = connectionEntity != Entity.Null;
++            wasConnected = false;
++            SetStatus(connectionPending ? $"Connecting to {connectedEndpoint}" : "Could not create a connection");
+         }
+ 
+         public void StartHost()
+         {
+-            StartServer();
++            if (!TryStartServer()) return;
++            // El cliente del host está en el mismo proceso: debe usar loopback.
++            if (addressInput != null) addressInput.text = "127.0.0.1";
+             ConnectClient();
+         }
+ 
+-        private ushort ReadPort()
++        private bool ConnectionExists()
++        {
++            return connectionWorld != null && connectionWorld.IsCreated
++                && connectionWorld.EntityManager.Exists(connectionEntity);
++        }
++
++        private string ReadAddress()
++        {
++            return addressInput != null ? addressInput.text.Trim() : ReadArgument("-address", "127.0.0.1");
++        }
++
++        private bool TryReadPort(out ushort port)
+         {
+-            return ushort.TryParse(portInput.text, out ushort port) && port > 0 ? port : DefaultPort;
++            string value = portInput != null ? portInput.text : ReadArgument("-port", DefaultPort.ToString());
++            if (ushort.TryParse(value, out port) && port > 0) return true;
++            SetStatus("Invalid Port. Enter a number from 1 to 65535.");
++            return false;
+         }
+ 
+         private void SetStatus(string value)
+         {
+-            statusText.text = $"Status: {value}";
++            if (statusText != null) statusText.text = $"Status: {value}";
+             Debug.Log($"NFE_STATUS: {value}");
+         }
+ 
++        private void SetLocalPlayer(string value)
++        {
++            if (localPlayerText != null) localPlayerText.text = value;
++        }
++
+         private static string ReadArgument(string name, string fallback)
+         {
+             string[] args = Environment.GetCommandLineArgs();
+             for (int index = 0; index < args.Length - 1; index++)
+             {
+-                if (string.Equals(args[index], name, StringComparison.OrdinalIgnoreCase))
+-                {
+-                    return args[index + 1];
+-                }
++                if (string.Equals(args[index], name, StringComparison.OrdinalIgnoreCase)) return args[index + 1];
+             }
+-
+             return fallback;
+         }
+ 
+diff --git a/Assets/Scripts/NFE/NfeGameplaySystems.cs b/Assets/Scripts/NFE/NfeGameplaySystems.cs
+index d292fc6..781015a 100644
+--- a/Assets/Scripts/NFE/NfeGameplaySystems.cs
++++ b/Assets/Scripts/NFE/NfeGameplaySystems.cs
+@@ -1,3 +1,4 @@
++using NetworkingLab.PowerUp;
+ using Unity.Collections;
+ using Unity.Entities;
+ using Unity.Mathematics;
+@@ -38,8 +39,20 @@ namespace NetworkingLab.NFE
+ 
+         public void OnUpdate(ref SystemState state)
+         {
+-            // STUDENT TODO NFE-02: mark the connection InGame and send NfeGoInGameRequest.
+-            // Use an EntityCommandBuffer and SendRpcCommandRequest targeted at the connection.
++            // NFE-02: el cliente solicita entrar y habilita la recepción de Ghosts.
++            using EntityCommandBuffer ecb = new(Allocator.Temp);
++            foreach (var (_, connection) in SystemAPI.Query<RefRO<NetworkId>>()
++                         .WithAll<NetworkStreamConnection>()
++                         .WithNone<NetworkStreamInGame, NetworkStreamRequestDisconnect>()
++                         .WithEntityAccess())
++            {
++                ecb.AddComponent<NetworkStreamInGame>(connection);
++                Entity request = ecb.CreateEntity();
++                ecb.AddComponent<NfeGoInGameRequest>(request);
++                ecb.AddComponent(request, new SendRpcCommandRequest { TargetConnection = connection });
++            }
++
++            ecb.Playback(state.EntityManager);
+         }
+     }
+ 
+@@ -56,8 +69,59 @@ namespace NetworkingLab.NFE
+ 
+         public void OnUpdate(ref SystemState state)
+         {
+-            // STUDENT TODO NFE-02: receive NfeGoInGameRequest, instantiate PlayerPrefab,
+-            // assign GhostOwner/PlayerNumber, and link the player to its connection.
++            // NFE-02: solo el servidor asigna identidad, posición inicial y propietario.
++            Entity prefab = SystemAPI.GetSingleton<NfePlayerSpawner>().PlayerPrefab;
++            ComponentLookup<NetworkId> networkIds = state.GetComponentLookup<NetworkId>(true);
++            networkIds.Update(ref state);
++
++            using EntityCommandBuffer ecb = new(Allocator.Temp);
++            using NativeHashSet<Entity> accepted = new(4, Allocator.Temp);
++            foreach (var (request, rpcEntity) in SystemAPI.Query<RefRO<ReceiveRpcCommandRequest>>()
++                         .WithAll<NfeGoInGameRequest>().WithEntityAccess())
++            {
++                Entity connection = request.ValueRO.SourceConnection;
++                ecb.DestroyEntity(rpcEntity);
++
++                // Ignora conexiones cerradas y solicitudes repetidas, incluso en el mismo frame.
++                if (!networkIds.HasComponent(connection)
++                    || state.EntityManager.HasComponent<NetworkStreamRequestDisconnect>(connection)
++                    || state.EntityManager.HasComponent<NetworkStreamInGame>(connection)
++                    || !accepted.Add(connection))
++                {
++                    continue;
++                }
++
++                int networkId = networkIds[connection].Value;
++                if (networkId <= 0)
++                {
++                    continue;
++                }
++
++                ecb.AddComponent<NetworkStreamInGame>(connection);
++                Entity player = ecb.Instantiate(prefab);
++                ecb.SetComponent(player, new GhostOwner { NetworkId = networkId });
++                ecb.SetComponent(player, new NfePlayerState
++                {
++                    PlayerNumber = networkId,
++                    Position = SpawnPosition(networkId)
++                });
++                // Al cerrar la conexión, NetCode destruye también su jugador.
++                ecb.AppendToBuffer(connection, new LinkedEntityGroup { Value = player });
++                UnityEngine.Debug.Log($"NFE_SPAWN: Player {networkId}");
++            }
++
++            ecb.Playback(state.EntityManager);
++        }
++
++        private static float2 SpawnPosition(int number)
++        {
++            switch ((number - 1) % 4)
++            {
++                case 0: return new float2(-5f, 3f);
++                case 1: return new float2(5f, 3f);
++                case 2: return new float2(-5f, -3f);
++                default: return new float2(5f, -3f);
++            }
+         }
+     }
+ 
+@@ -94,13 +158,39 @@ namespace NetworkingLab.NFE
+         }
+     }
+ 
++    [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ServerSimulation)]
+     [UpdateInGroup(typeof(PredictedSimulationSystemGroup))]
+     public partial struct NfeMovementSystem : ISystem
+     {
++        public void OnCreate(ref SystemState state)
++        {
++            state.RequireForUpdate<NfePlayerInput>();
++        }
++
+         public void OnUpdate(ref SystemState state)
+         {
+-            // STUDENT TODO NFE-03: for simulated ghosts, apply NfePlayerInput.Move to
+-            // NfePlayerState.Position with DeltaTime and the baseline movement bounds.
++            // NFE-03: la misma regla corre en el owner predicho y en el servidor.
++            foreach (var (input, player) in SystemAPI
++                         .Query<RefRO<NfePlayerInput>, RefRW<NfePlayerState>>()
++                         .WithAll<NfePlayerTag, Simulate>())
++            {
++                float2 move = input.ValueRO.Move;
++                if (!math.all(math.isfinite(move)))
++                {
++                    move = float2.zero;
++                }
++
++                float lengthSquared = math.lengthsq(move);
++                if (lengthSquared > 1f)
++                {
++                    move *= math.rsqrt(lengthSquared);
++                }
++
++                float2 next = player.ValueRO.Position + move * (5f * SystemAPI.Time.DeltaTime);
++                next.x = math.clamp(next.x, -10.5f, 10.5f);
++                next.y = math.clamp(next.y, -7.5f, 7.5f);
++                player.ValueRW.Position = next;
++            }
+         }
+     }
+ 
+@@ -109,20 +199,63 @@ namespace NetworkingLab.NFE
+     [UpdateAfter(typeof(NfeMovementSystem))]
+     public partial struct NfePowerUpServerSystem : ISystem
+     {
++        public void OnCreate(ref SystemState state)
++        {
++            state.RequireForUpdate<NetworkStreamInGame>();
++            state.RequireForUpdate<NfePlayerInput>();
++        }
++
+         public void OnUpdate(ref SystemState state)
+         {
+-            // STUDENT TODO NFE-04: detect InputEvent PowerUp on the server and broadcast
+-            // NfePowerUpResultRpc containing the replicated PlayerNumber.
++            // NFE-04: InputEvent entrega el evento por tick; el servidor anuncia el resultado.
++            using EntityCommandBuffer ecb = new(Allocator.Temp);
++            foreach (var (input, player) in SystemAPI
++                         .Query<RefRO<NfePlayerInput>, RefRO<NfePlayerState>>()
++                         .WithAll<NfePlayerTag, Simulate>())
++            {
++                if (!input.ValueRO.PowerUp.IsSet || player.ValueRO.PlayerNumber <= 0)
++                {
++                    continue;
++                }
++
++                Entity rpc = ecb.CreateEntity();
++                ecb.AddComponent(rpc, new NfePowerUpResultRpc
++                {
++                    PlayerNumber = player.ValueRO.PlayerNumber
++                });
++                // En Netcode 6.6, Entity.Null ya significa broadcast a las conexiones.
++                // SendRpcCommandRequest no tiene el campo BroadcastTargets de la guía.
++                ecb.AddComponent(rpc, new SendRpcCommandRequest { TargetConnection = Entity.Null });
++            }
++
++            ecb.Playback(state.EntityManager);
+         }
+     }
+ 
+     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
+     public partial struct NfePowerUpClientSystem : ISystem
+     {
++        public void OnCreate(ref SystemState state)
++        {
++            state.RequireForUpdate<NfePowerUpResultRpc>();
++        }
++
+         public void OnUpdate(ref SystemState state)
+         {
+-            // STUDENT TODO NFE-04: consume NfePowerUpResultRpc on clients, raise
+-            // PowerUpEvents, then destroy the received RPC entity.
++            // NFE-04: cada cliente publica su evento de UI y consume la entidad RPC una vez.
++            using EntityCommandBuffer ecb = new(Allocator.Temp);
++            foreach (var (result, rpcEntity) in SystemAPI.Query<RefRO<NfePowerUpResultRpc>>()
++                         .WithAll<ReceiveRpcCommandRequest>().WithEntityAccess())
++            {
++                if (result.ValueRO.PlayerNumber > 0)
++                {
++                    PowerUpEvents.RaiseActivated($"Player {result.ValueRO.PlayerNumber}");
++                }
++
++                ecb.DestroyEntity(rpcEntity);
++            }
++
++            ecb.Playback(state.EntityManager);
+         }
+     }
+ }
+diff --git a/Assets/Scripts/NFE/NfePlayerAuthoring.cs b/Assets/Scripts/NFE/NfePlayerAuthoring.cs
+new file mode 100644
+index 0000000..c1e0f74
+--- /dev/null
++++ b/Assets/Scripts/NFE/NfePlayerAuthoring.cs
+@@ -0,0 +1,21 @@
++using Unity.Entities;
++using UnityEngine;
++
++namespace NetworkingLab.NFE
++{
++    // Una clase MonoBehaviour por archivo permite guardar una referencia de script real.
++    [DisallowMultipleComponent]
++    public sealed class NfePlayerAuthoring : MonoBehaviour
++    {
++        private sealed class NfePlayerBaker : Baker<NfePlayerAuthoring>
++        {
++            public override void Bake(NfePlayerAuthoring authoring)
++            {
++                Entity entity = GetEntity(TransformUsageFlags.Dynamic);
++                AddComponent<NfePlayerTag>(entity);
++                AddComponent<NfePlayerState>(entity);
++                AddComponent<NfePlayerInput>(entity);
++            }
++        }
++    }
++}
+diff --git a/Assets/Scripts/NFE/NfePlayerAuthoring.cs.meta b/Assets/Scripts/NFE/NfePlayerAuthoring.cs.meta
+new file mode 100644
+index 0000000..bb45135
+--- /dev/null
++++ b/Assets/Scripts/NFE/NfePlayerAuthoring.cs.meta
+@@ -0,0 +1,2 @@
++fileFormatVersion: 2
++guid: 68f9318f1fa04f9ca6c91bfa5a0c4c12
+diff --git a/Assets/Scripts/NFE/NfePlayerSpawnerAuthoring.cs b/Assets/Scripts/NFE/NfePlayerSpawnerAuthoring.cs
+new file mode 100644
+index 0000000..305d5f0
+--- /dev/null
++++ b/Assets/Scripts/NFE/NfePlayerSpawnerAuthoring.cs
+@@ -0,0 +1,34 @@
++using Unity.Entities;
++using UnityEngine;
++
++namespace NetworkingLab.NFE
++{
++    [DisallowMultipleComponent]
++    public sealed class NfePlayerSpawnerAuthoring : MonoBehaviour
++    {
++        [SerializeField] private GameObject playerPrefab;
++
++        public void Configure(GameObject prefab)
++        {
++            playerPrefab = prefab;
++        }
++
++        private sealed class NfePlayerSpawnerBaker : Baker<NfePlayerSpawnerAuthoring>
++        {
++            public override void Bake(NfePlayerSpawnerAuthoring authoring)
++            {
++                if (authoring.playerPrefab == null)
++                {
++                    Debug.LogError("NFE: falta asignar NFEPlayer al spawner de la SubScene.", authoring);
++                    return;
++                }
++
++                Entity entity = GetEntity(TransformUsageFlags.None);
++                AddComponent(entity, new NfePlayerSpawner
++                {
++                    PlayerPrefab = GetEntity(authoring.playerPrefab, TransformUsageFlags.Dynamic)
++                });
++            }
++        }
++    }
++}
+diff --git a/Assets/Scripts/NFE/NfePlayerSpawnerAuthoring.cs.meta b/Assets/Scripts/NFE/NfePlayerSpawnerAuthoring.cs.meta
+new file mode 100644
+index 0000000..0a6625a
+--- /dev/null
++++ b/Assets/Scripts/NFE/NfePlayerSpawnerAuthoring.cs.meta
+@@ -0,0 +1,2 @@
++fileFormatVersion: 2
++guid: 85ecde24502d4eef96a2ebc5774e48dc
+diff --git a/Assets/Scripts/NFE/NfePresentationBridge.cs b/Assets/Scripts/NFE/NfePresentationBridge.cs
+index deb76e8..cafaac0 100644
+--- a/Assets/Scripts/NFE/NfePresentationBridge.cs
++++ b/Assets/Scripts/NFE/NfePresentationBridge.cs
+@@ -33,6 +33,11 @@ namespace NetworkingLab.NFE
+             {
+                 live.Add(entity);
+                 NfePlayerState state = entityManager.GetComponentData<NfePlayerState>(entity);
++                // Espera al primer snapshot con identidad; evita etiquetas iniciales Player 0.
++                if (state.PlayerNumber <= 0)
++                {
++                    continue;
++                }
+ 
+                 if (!visuals.TryGetValue(entity, out GameObject visual))
+                 {
+diff --git a/Docs/NFE_ARCHIVOS_CAMBIADOS.txt b/Docs/NFE_ARCHIVOS_CAMBIADOS.txt
+new file mode 100644
+index 0000000..9d6f89c
+--- /dev/null
++++ b/Docs/NFE_ARCHIVOS_CAMBIADOS.txt
+@@ -0,0 +1,30 @@
++Archivos de la implementación NFE del Grupo 7
++
++Assets/Prefabs/NFEPlayer.prefab
++Assets/Scenes/NFE/NFEGameplaySubScene.unity
++Assets/Scripts/Editor/NfeBuildTools.cs
++Assets/Scripts/Editor/NfeBuildTools.cs.meta
++Assets/Scripts/NFE/NfeAgonesLifecycle.cs
++Assets/Scripts/NFE/NfeAgonesLifecycle.cs.meta
++Assets/Scripts/NFE/NfeBootstrap.cs
++Assets/Scripts/NFE/NfeComponents.cs
++Assets/Scripts/NFE/NfeConnectionUI.cs
++Assets/Scripts/NFE/NfeGameplaySystems.cs
++Assets/Scripts/NFE/NfePlayerAuthoring.cs
++Assets/Scripts/NFE/NfePlayerAuthoring.cs.meta
++Assets/Scripts/NFE/NfePlayerSpawnerAuthoring.cs
++Assets/Scripts/NFE/NfePlayerSpawnerAuthoring.cs.meta
++Assets/Scripts/NFE/NfePresentationBridge.cs
++Docs/NFE_ARCHIVOS_CAMBIADOS.txt
++Docs/NFE_GRUPO7_PASO_A_PASO.md
++Infrastructure/Containers/NFE/Dockerfile
++Infrastructure/README.md
++Infrastructure/Scripts/build-nfe-image.sh
++Infrastructure/Scripts/forward-nfe-udp.py
++Infrastructure/Scripts/start-nfe-clients.ps1
++Infrastructure/Scripts/start-nfe-server.ps1
++README.md
++
++Guía: Docs/NFE_GRUPO7_PASO_A_PASO.md
++Parche de estos archivos: Docs/NFE_Grupo7.patch
++El parche no se incluye a sí mismo. Los paquetes y el código NGO conservan el contenido recibido.
+diff --git a/Docs/NFE_GRUPO7_PASO_A_PASO.md b/Docs/NFE_GRUPO7_PASO_A_PASO.md
+new file mode 100644
+index 0000000..0dc52ae
+--- /dev/null
++++ b/Docs/NFE_GRUPO7_PASO_A_PASO.md
+@@ -0,0 +1,274 @@
++# NFE - Grupo 7: implementación y pruebas
++
++Proyecto: NetWorking-Grupo7, rama de trabajo `main`.
++Unity: **6000.6.0f1**. Equipo de desarrollo: Windows x86-64.
++Servidor final del laboratorio: Debian amd64 en VirtualBox, con Docker, Minikube y Agones.
++
++## Qué está preparado y qué falta comprobar
++
++Esta versión incorpora el código de NFE-01, NFE-02, NFE-03 y NFE-04. También repara las referencias de authoring del prefab y de la SubScene, añade menús para generar los builds NFE y añade Ready/Health de Agones.
++
++El código se revisó fuera de Unity. **La compilación en Unity, los builds, la VM y las pruebas multijugador no se han ejecutado aquí.** No presentes esos checkpoints como aprobados antes de probarlos en tu computador. Los tres TODO de NGO conservan su código original.
++
++## 1. Incorporar los cambios en el repositorio
++
++Si vas a abrir este ZIP como proyecto independiente, descomprímelo y añade su carpeta desde Unity Hub. La carpeta correcta contiene `Assets`, `Packages` y `ProjectSettings`.
++
++Si ya tienes el repositorio clonado, primero revisa y guarda los cambios locales del equipo. Actualiza `main` antes de incorporar el trabajo. El ZIP incluye un parche, `NFE_Grupo7.patch`, que contiene solamente los cambios de esta entrega. Cópialo temporalmente fuera del repositorio y, desde la raíz de tu clon, ejecuta:
++
++```powershell
++git switch main
++git pull
++git apply --check "C:\ruta\NFE_Grupo7.patch"
++git apply "C:\ruta\NFE_Grupo7.patch"
++git status --short
++```
++
++Reemplaza la ruta del parche por su ubicación real. Si `git apply --check` informa un conflicto, conserva los archivos del equipo y revisa esa diferencia antes de aplicar. El parche se generó respecto al ZIP recibido; una modificación posterior de `main` puede requerir combinar cambios.
++
++Como alternativa, copia manualmente únicamente los archivos indicados en `Docs/NFE_ARCHIVOS_CAMBIADOS.txt`, incluidos sus `.meta`. No reemplaces todo el repositorio si un compañero ya avanzó en otras partes.
++
++Después de compilar y hacer la prueba local:
++
++```powershell
++git add Assets/Scripts/NFE Assets/Scripts/Editor/NfeBuildTools.cs Assets/Scripts/Editor/NfeBuildTools.cs.meta Assets/Prefabs/NFEPlayer.prefab Assets/Scenes/NFE/NFEGameplaySubScene.unity Infrastructure/Containers/NFE/Dockerfile Infrastructure/Scripts/build-nfe-image.sh Infrastructure/Scripts/forward-nfe-udp.py Infrastructure/Scripts/start-nfe-clients.ps1 Infrastructure/Scripts/start-nfe-server.ps1 Infrastructure/README.md README.md Docs/NFE_GRUPO7_PASO_A_PASO.md Docs/NFE_ARCHIVOS_CAMBIADOS.txt
++git diff --cached --stat
++git commit -m "Completar NFE y preparar servidor dedicado"
++git push origin main
++```
++
++Comprueba el diff antes de confirmar para que el commit incluya los cambios que acabas de probar. Los builds y los logs quedan ignorados por Git.
++
++## 2. Abrir Unity y revisar la escena
++
++1. Abre el proyecto con Unity **6000.6.0f1**, la versión de `ProjectSettings/ProjectVersion.txt`.
++2. Deja que Unity resuelva los paquetes y termine de importar. Conserva `Packages/manifest.json` y `packages-lock.json`.
++3. Abre `Assets/Scenes/NFEGameplay.unity`.
++4. Abre la consola y resuelve el primer error rojo si aparece. Guarda el mensaje completo y el archivo/línea.
++5. Revisa `Assets/Prefabs/NFEPlayer.prefab`: debe tener `NfePlayerAuthoring`, `GhostAuthoringComponent`, Has Owner y Support Auto Command Target activados, y modo Owner Predicted.
++6. Abre la SubScene `Assets/Scenes/NFE/NFEGameplaySubScene.unity`. Su objeto `NFE Player Spawner` debe tener `NfePlayerSpawnerAuthoring` y el prefab `NFEPlayer` asignado.
++7. En la escena principal, confirma que la SubScene tiene Auto Load Scene activado.
++
++Los dos scripts de authoring ahora están en archivos separados con referencias GUID reales. El starter recibido tenía una referencia de jugador vacía y un script de spawner incrustado en la escena. No hace falta ejecutar `Build NGO and NFE Scenes` para esta entrega: ese menú reconstruye también los recursos de NGO.
++
++Si el Editor indica que no existe ServerWorld, revisa el **PlayMode Tools de NetCode** y selecciona ClientAndServer para la prueba Host. El bootstrap respeta esta configuración. El escenario de **Multiplayer Play Mode** que abre varios procesos es otra herramienta; no debe confundirse con la selección de Worlds.
++
++## 3. Primera prueba: Host y un cliente
++
++1. En `NFEGameplay`, presiona Play.
++2. Usa Address `127.0.0.1` y Port `7980`.
++3. Pulsa **Start Host** una sola vez.
++4. Debe aparecer `Local client ID: ...` y una cápsula con nombre y color.
++5. Enfoca la vista Game. Usa **WASD** para mover tu jugador y **Espacio** para PowerUp. Evita dejar enfocado el campo de dirección al jugar.
++6. Detén Play, genera el cliente Windows desde `Networking Lab > NFE > Build Windows Client` y vuelve a iniciar Host en el Editor.
++7. Desde PowerShell, situado en la raíz del proyecto, inicia un cliente adicional:
++
++```powershell
++powershell.exe -File .\Infrastructure\Scripts\start-nfe-clients.ps1 -Address 127.0.0.1 -Port 7980 -Clients 1
++```
++
++Si Windows muestra que no permite ejecutar scripts, puedes ejecutar el cliente directamente:
++
++```powershell
++& ".\Builds\NFE-WindowsClient\NetworkingLabNFEClient.exe" -nfe -client -address 127.0.0.1 -port 7980
++```
++
++No es necesario modificar la política permanente de PowerShell. Si Windows solicita permitir el ejecutable en la red, autoriza la red privada que usarás para el laboratorio.
++
++Cada proceso cliente usa WASD y Espacio para **su propio jugador**. Los controles diferentes de cuatro jugadores en un teclado pertenecen a `LocalGameplayBaseline`, no a la prueba de red NFE.
++
++Comprueba que hay dos identidades distintas, cada ventana controla su cápsula, los movimientos se ven en ambas y PowerUp muestra el mismo jugador en ambas ventanas durante unos dos segundos. Cierra el cliente adicional antes de seguir.
++
++## 4. Qué resuelve cada actividad
++
++| Actividad | Código principal | Comprobación |
++|---|---|---|
++| NFE-01 | `NfeConnectionUI`: consulta RW de `NetworkStreamDriver`, Listen y Connect | El servidor escucha UDP 7980 y el cliente obtiene NetworkId. |
++| NFE-02 | `NfeGoInGameClientSystem` y `NfeGoInGameServerSystem` | Un Ghost por conexión, GhostOwner correcto y posiciones iniciales separadas. |
++| NFE-03 | `NfeMovementSystem` en PredictedSimulationSystemGroup | Owner predice, servidor simula, los snapshots actualizan a los demás y se respetan los límites. |
++| NFE-04 | `NfePowerUpServerSystem` y `NfePowerUpClientSystem` | InputEvent se procesa en el servidor; RPC fiable llega a cada UI y su entidad se consume. |
++
++NFE-02 descarta solicitudes repetidas y conexiones cerradas. El número del jugador viene del NetworkId asignado por el servidor. `LinkedEntityGroup` vincula el Ghost con su conexión para que NetCode lo destruya al desconectar.
++
++El movimiento tiene velocidad 5 y límites X entre -10.5 y 10.5, Z entre -7.5 y 7.5. La dirección se limita para que la diagonal no sea más rápida; el servidor descarta valores no finitos.
++
++Dos detalles de los ejemplos de la guía se adaptaron a Netcode 6.6:
++
++- Desde un MonoBehaviour, el singleton se obtiene con `EntityQuery.GetSingletonRW<NetworkStreamDriver>()`; no se llama a `EntityManager.GetComponentDataRW` sin indicar una entidad.
++- `SendRpcCommandRequest.TargetConnection = Entity.Null` realiza el broadcast. La API documentada de 6.6 no contiene `BroadcastTargets` ni requiere `RpcBroadcastTargets.All`.
++
++## 5. Generar los builds
++
++Los nuevos menús generan solo `NFEGameplay`, sin mezclar baseline o NGO. La SubScene se incluye como dependencia de la escena principal.
++
++| Menú `Networking Lab > NFE` | Resultado |
++|---|---|
++| Build Windows Client | `Builds/NFE-WindowsClient/NetworkingLabNFEClient.exe` |
++| Build Windows Server | `Builds/NFE-WindowsServer/NetworkingLabNFEServer.exe` |
++| Build Linux Server | `Builds/NFE-LinuxServer/NetworkingLabNFEServer.x86_64` |
++
++Instala desde Unity Hub los módulos que el Editor solicite para Windows Dedicated Server y Linux Dedicated Server. Para el Linux Server desde Windows necesitas el soporte de compilación Linux correspondiente. Si el build informa que no está instalado, agrega ese módulo a la instalación **6000.6.0f1** y repite el menú.
++
++Detén Play antes de generar un build. Espera `NFE_BUILD: ...` en la consola. Un archivo ejecutable solo no es suficiente: conserva y transfiere **toda** la carpeta del build, incluida su carpeta de datos y bibliotecas.
++
++El bootstrap crea solo ServerWorld en Dedicated Server y solo ClientWorld cuando se inicia con `-client`. Los menús de servidor permiten HTTP para el REST SDK local de Agones al compilar y restauran después la opción del proyecto. Si generas el servidor manualmente con Build Profiles, revisa esa opción de HTTP para que las llamadas locales al sidecar funcionen.
++
++## 6. Cuatro clientes en Windows antes de Linux
++
++Para una prueba reproducible puedes usar el servidor Windows preparado, con el Editor fuera de Play. Genera Windows Server y Windows Client; después ejecuta:
++
++```powershell
++powershell.exe -File .\Infrastructure\Scripts\start-nfe-server.ps1 -Port 7980
++powershell.exe -File .\Infrastructure\Scripts\start-nfe-clients.ps1 -Address 127.0.0.1 -Port 7980 -Clients 4
++```
++
++El primer script muestra el PID del servidor y la ruta del log. El segundo abre cuatro procesos cliente. Si prefieres usar el Editor como servidor, presiona Play y **Start Server**, sin pulsar Start Host; luego abre los cuatro clientes con el segundo script.
++
++Espera conexión de cada ventana. Mueve cada jugador por separado y activa PowerUp en cada una. Deben existir cuatro jugadores distintos. Mantén una dirección contra un borde; no debe atravesarlo. Cierra una ventana y comprueba que su jugador desaparece en las otras; al volver a conectar debe crearse un solo jugador.
++
++En `Window > Entities > Hierarchy`, inspecciona ClientWorld y ServerWorld. El Ghost tiene `GhostOwner.NetworkId` igual al NetworkId de su conexión. Solo el Ghost propietario lleva `GhostOwnerIsLocal` habilitado en ese cliente.
++
++Para detener el servidor Windows, usa el PID concreto que imprimió el script:
++
++```powershell
++Stop-Process -Id <PID_DEL_SERVIDOR>
++```
++
++Reemplaza el marcador por el PID observado. Cierra los cuatro clientes. No mantengas dos servidores intentando escuchar UDP 7980 en el mismo Windows.
++
++## 7. Debian y servidor Linux directo
++
++Sigue las secciones 9 a 15 de la guía del docente: VirtualBox en Windows, Debian **amd64**, adaptador NAT, adaptador Host-Only y SSH. En Debian observa:
++
++```bash
++uname -m
++ip -br addr
++```
++
++La arquitectura debe ser `x86_64`. Identifica la IP del adaptador Host-Only; esa es la dirección que usará Windows. `127.0.0.1` en Windows solo sirve para un servidor que corre en el mismo Windows.
++
++Genera Linux Server desde Unity. Desde PowerShell transfiere toda su carpeta:
++
++```powershell
++scp -r .\Builds\NFE-LinuxServer usuario@<IP_VM>:/home/usuario/nfe-server
++```
++
++Sustituye usuario e IP por los valores de tu VM. En Debian:
++
++```bash
++cd ~/nfe-server
++chmod +x NetworkingLabNFEServer.x86_64
++file NetworkingLabNFEServer.x86_64
++./NetworkingLabNFEServer.x86_64 -batchmode -nographics -nfe -port 7980 -logFile -
++```
++
++En otra terminal de Debian:
++
++```bash
++ss -lunp | rg 7980
++```
++
++Si no tienes `rg`, usa `grep 7980`. La salida debe mostrar el socket UDP del proceso. Si el ejecutable informa una biblioteca ausente, consulta `ldd NetworkingLabNFEServer.x86_64` e instala la dependencia identificada antes de continuar.
++
++Desde Windows conecta **un** cliente a la IP Host-Only de Debian. Cuando funcione, abre cuatro:
++
++```powershell
++powershell.exe -File .\Infrastructure\Scripts\start-nfe-clients.ps1 -Address <IP_VM> -Port 7980 -Clients 4
++```
++
++Guarda las evidencias. Detén este servidor directo con Ctrl+C antes de iniciar el contenedor.
++
++## 8. Contenedor NFE
++
++En Debian necesitas una copia de la raíz del proyecto que incluya `Infrastructure` y `Builds/NFE-LinuxServer`. Desde esa raíz:
++
++```bash
++docker build -f Infrastructure/Containers/NFE/Dockerfile -t networking-lab-nfe:local .
++docker run --rm --name nfe-direct-test -p 7980:7980/udp networking-lab-nfe:local
++```
++
++En otra terminal revisa `docker logs nfe-direct-test` y prueba desde Windows contra la IP Host-Only. Aquí todavía no existe el sidecar de Agones; que no aparezca `NFE_AGONES: Ready accepted` es normal en esta prueba.
++
++Detén el contenedor antes de seguir:
++
++```bash
++docker stop nfe-direct-test
++```
++
++## 9. Minikube, Agones y GameServer NFE
++
++Prepara Docker y Minikube siguiendo la guía. El starter incluye `install-minikube-agones.sh`; conserva sus versiones indicadas por el docente y comprueba instalación, recursos y compatibilidad antes de avanzar. No se ha ejecutado ese instalador en esta entrega.
++
++Una vez activo el perfil `agones`, desde la raíz del proyecto en Debian:
++
++```bash
++bash Infrastructure/Scripts/build-nfe-image.sh
++minikube kubectl -p agones -- get nodes
++minikube kubectl -p agones -- get pods -n agones-system
++minikube kubectl -p agones -- apply -f Infrastructure/Kubernetes/Agones/nfe-gameserver.yaml
++minikube kubectl -p agones -- get gameservers
++minikube kubectl -p agones -- get pods -o wide
++minikube kubectl -p agones -- logs -l agones.dev/gameserver=networking-lab-nfe -c unity-server
++```
++
++El script de construcción específico de NFE **no requiere** que tu compañero haya generado NGO. El manifiesto NFE mantiene UDP 7980 y nodo amd64.
++
++Al abrir Listen, `NfeAgonesLifecycle` detecta `AGONES_SDK_HTTP_PORT`, empieza los latidos `POST /health` y espera el prefab cargado antes de enviar `POST /ready`. Reintenta si el sidecar inicia después. Los logs esperados son `NFE_AGONES: Health accepted` y `NFE_AGONES: Ready accepted`. Confirma además que **el recurso GameServer**, no solo el Pod, llega a `Ready`.
++
++Si falla:
++
++```bash
++minikube kubectl -p agones -- describe gameserver networking-lab-nfe
++minikube kubectl -p agones -- describe pods -l agones.dev/gameserver=networking-lab-nfe
++```
++
++Si reconstruyes el ejecutable o la imagen, vuelve a cargar la imagen y recrea esa instancia de GameServer cuando las pruebas estén detenidas; un Pod existente no cambia su binario por volver a ejecutar `apply`.
++
++## 10. Ruta UDP desde Windows al nodo Minikube
++
++El nodo Minikube con driver Docker normalmente tiene una IP interna distinta de la Host-Only de Debian. El `hostPort` de Agones pertenece al nodo Minikube. **No basta con escribir la IP de un Pod ni con usar `kubectl port-forward`, que no reenvía el tráfico UDP de esta práctica.**
++
++Si Windows tiene una ruta directa validada al endpoint que publica GameServer, usa ese endpoint. Si el nodo Docker no es alcanzable desde Windows, incluye un proxy UDP del laboratorio en Debian. Este helper conserva un socket por cliente y reenvía en ambas direcciones.
++
++En Debian, desde la raíz del proyecto:
++
++```bash
++ip -br addr
++minikube ip -p agones
++python3 Infrastructure/Scripts/forward-nfe-udp.py --listen-address <IP_VM_HOST_ONLY> --target-address "$(minikube ip -p agones)" --listen-port 7980 --target-port 7980
++```
++
++Reemplaza el marcador de Host-Only por la IP observada. El proxy debe correr en Debian, **fuera** del contenedor y del nodo Minikube. Mantén su terminal abierta. Si Agones muestra otro puerto en `status.ports`, usa ese número en `--target-port`; el manifiesto entregado utiliza puerto estático 7980.
++
++Ahora Windows conecta a `<IP_VM_HOST_ONLY>:7980`. El helper dirige esos paquetes al nodo Minikube y sus respuestas regresan al cliente correspondiente. No cambia NetCode ni actúa como servidor de juego. Detén el proxy con Ctrl+C al terminar.
++
++El proxy se comprobó con cuatro clientes UDP de prueba, ida y vuelta y puerto de salida estable por cliente. **Esto verifica el helper de red; no reemplaza la prueba real con cuatro clientes Unity.**
++
++## 11. Evidencias de tu parte
++
++| Evidencia | Qué debe verse |
++|---|---|
++| Código NFE | Las cuatro actividades comentadas y explicación de su flujo. |
++| Consola Unity | Compilación sin errores, después de importar en 6000.6.0f1. |
++| Entities Hierarchy | Ghosts, GhostOwner e identidad del propietario. |
++| Dos y cuatro clientes | Identidades distintas y un jugador controlado por cada proceso. |
++| Movimiento | Posiciones compartidas y límites respetados. |
++| PowerUp | Mismo número de jugador, una activación por pulsación y mensaje que desaparece. |
++| Desconexión | Jugador retirado y UI que deja de mostrar Connected. |
++| Build Linux | Carpeta completa y ejecutable ELF x86-64. |
++| VM y SSH | `uname -m`, IP Host-Only y conexión remota. |
++| Contenedor | Imagen construida, logs y clientes conectados. |
++| Kubernetes y Agones | Node Ready, Pods y GameServer Ready. |
++| Endpoint y ruta | IP y puerto observados; log del proxy si fue necesario. |
++| Demostración final | Cuatro clientes Unity contra el servidor Linux administrado por Agones. |
++
++Marca cada checkpoint como PASS, FAIL, BLOCKED o NOT_TESTED según el resultado que realmente obtengas. Las preguntas de análisis de la guía se responden con tus observaciones y evidencias.
++
++## Fuentes usadas para ajustar las APIs
++
++- [Network connection, Netcode 6.6](https://docs.unity3d.com/Packages/com.unity.netcode@6.6/manual/network-connection.html).
++- [SendRpcCommandRequest, Netcode 6.6](https://docs.unity3d.com/Packages/com.unity.netcode@6.6/api/Unity.NetCode.SendRpcCommandRequest.html).
++- [Command stream e InputEvent, Netcode 6.6](https://docs.unity3d.com/Packages/com.unity.netcode@6.6/manual/command-stream.html).
++- [ClientServerBootstrap, Netcode 6.6](https://docs.unity3d.com/Packages/com.unity.netcode@6.6/api/Unity.NetCode.ClientServerBootstrap.html).
++- [Agones REST Game Server Client API](https://agones.dev/site/docs/guides/client-sdks/rest/).
++- Guía del docente: `GUIA_LAB_UNITY_NETWORKING_LINUX.pdf`, actividades NFE de las páginas 15 a 18 y capítulos de despliegue.
+diff --git a/Infrastructure/Containers/NFE/Dockerfile b/Infrastructure/Containers/NFE/Dockerfile
+index 8daa289..7aa4b6e 100644
+--- a/Infrastructure/Containers/NFE/Dockerfile
++++ b/Infrastructure/Containers/NFE/Dockerfile
+@@ -1,7 +1,7 @@
+ FROM debian:13-slim
+ 
+ RUN apt-get update \
+-    && apt-get install -y --no-install-recommends ca-certificates libatomic1 libunwind8 \
++    && apt-get install -y --no-install-recommends ca-certificates libatomic1 libunwind8 libstdc++6 \
+     && rm -rf /var/lib/apt/lists/* \
+     && useradd --create-home --uid 10001 unity
+ 
+@@ -12,4 +12,4 @@ RUN chmod +x NetworkingLabNFEServer.x86_64 \
+ 
+ USER unity
+ EXPOSE 7980/udp
+-ENTRYPOINT ["./NetworkingLabNFEServer.x86_64", "-batchmode", "-nographics", "-nfe", "-port", "7980"]
++ENTRYPOINT ["./NetworkingLabNFEServer.x86_64", "-batchmode", "-nographics", "-nfe", "-port", "7980", "-logFile", "-"]
+diff --git a/Infrastructure/README.md b/Infrastructure/README.md
+index 12d26b5..0829fda 100644
+--- a/Infrastructure/README.md
++++ b/Infrastructure/README.md
+@@ -11,7 +11,9 @@ Los builds generados por `BuildTarget.StandaloneLinux64` son ejecutables ELF `x8
+ - NGO: UDP 7979.
+ - NFE: UDP 7980.
+ 
+-La integración de ciclo de vida de Agones (`Ready` y `Health`) es una actividad del estudiante descrita en la guía; no está implementada en el starter.
++NFE incorpora `Ready` y `Health` en `NfeAgonesLifecycle`: se activa cuando existe `AGONES_SDK_HTTP_PORT`. Se debe verificar en el GameServer real. NGO conserva pendiente esa integración.
++
++Para construir solamente NFE, usa `bash Infrastructure/Scripts/build-nfe-image.sh`. No requiere un build NGO. Los pasos de Windows, Debian y la ruta UDP hacia Minikube están en [la guía NFE del Grupo 7](../Docs/NFE_GRUPO7_PASO_A_PASO.md).
+ 
+ ## Flujo amd64
+ 
+diff --git a/Infrastructure/Scripts/build-nfe-image.sh b/Infrastructure/Scripts/build-nfe-image.sh
+new file mode 100755
+index 0000000..a02cd5f
+--- /dev/null
++++ b/Infrastructure/Scripts/build-nfe-image.sh
+@@ -0,0 +1,20 @@
++#!/usr/bin/env bash
++set -euo pipefail
++
++project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
++cd "$project_root"
++
++if [[ "$(uname -m)" != "x86_64" ]]; then
++  echo "ERROR: el build NFE de este laboratorio requiere Debian amd64." >&2
++  exit 1
++fi
++
++if [[ ! -f Builds/NFE-LinuxServer/NetworkingLabNFEServer.x86_64 ]]; then
++  echo "ERROR: falta Builds/NFE-LinuxServer/NetworkingLabNFEServer.x86_64." >&2
++  echo "Genera el build Linux Server en Unity y transfiere toda su carpeta." >&2
++  exit 1
++fi
++
++docker build -f Infrastructure/Containers/NFE/Dockerfile -t networking-lab-nfe:local .
++minikube image load -p agones networking-lab-nfe:local
++echo "Imagen NFE construida y cargada en el perfil agones."
+diff --git a/Infrastructure/Scripts/forward-nfe-udp.py b/Infrastructure/Scripts/forward-nfe-udp.py
+new file mode 100755
+index 0000000..7861c14
+--- /dev/null
++++ b/Infrastructure/Scripts/forward-nfe-udp.py
+@@ -0,0 +1,98 @@
++#!/usr/bin/env python3
++"""Proxy UDP para Windows -> IP Host-Only de Debian -> nodo Minikube.
++
++Conserva un socket de salida por cliente; los paquetes de una conexión
++mantienen su puerto de origen y las respuestas vuelven al cliente correcto.
++No reemplaza la réplica ni la validación de NetCode.
++"""
++
++import argparse
++import ipaddress
++import selectors
++import socket
++import time
++
++
++def ipv4(value):
++    try:
++        return str(ipaddress.IPv4Address(value))
++    except ipaddress.AddressValueError as exc:
++        raise argparse.ArgumentTypeError("Se requiere una dirección IPv4.") from exc
++
++
++def port(value):
++    try:
++        number = int(value)
++    except ValueError as exc:
++        raise argparse.ArgumentTypeError("El puerto debe ser un número.") from exc
++    if not 1 <= number <= 65535:
++        raise argparse.ArgumentTypeError("El puerto debe estar entre 1 y 65535.")
++    return number
++
++
++def serve(listen_address, listen_port, target_address, target_port, idle_seconds=300):
++    selector = selectors.DefaultSelector()
++    frontend = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
++    peers = {}
++
++    def remove_peer(address):
++        entry = peers.pop(address, None)
++        if entry is not None:
++            selector.unregister(entry["socket"])
++            entry["socket"].close()
++
++    try:
++        frontend.bind((listen_address, listen_port))
++        frontend.setblocking(False)
++        selector.register(frontend, selectors.EVENT_READ, None)
++        print(f"NFE_UDP_PROXY: {listen_address}:{listen_port} -> {target_address}:{target_port}", flush=True)
++        while True:
++            for key, _ in selector.select(timeout=0.5):
++                if key.fileobj is frontend:
++                    payload, address = frontend.recvfrom(65535)
++                    if address not in peers:
++                        backend = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
++                        backend.setblocking(False)
++                        backend.connect((target_address, target_port))
++                        peers[address] = {"socket": backend, "last_seen": time.monotonic()}
++                        selector.register(backend, selectors.EVENT_READ, address)
++                        print(f"NFE_UDP_PROXY: client {address[0]}:{address[1]}", flush=True)
++                    peers[address]["last_seen"] = time.monotonic()
++                    try:
++                        peers[address]["socket"].send(payload)
++                    except OSError:
++                        remove_peer(address)
++                else:
++                    address = key.data
++                    try:
++                        payload = key.fileobj.recv(65535)
++                        frontend.sendto(payload, address)
++                        peers[address]["last_seen"] = time.monotonic()
++                    except OSError:
++                        remove_peer(address)
++
++            now = time.monotonic()
++            for address, entry in list(peers.items()):
++                if now - entry["last_seen"] > idle_seconds:
++                    remove_peer(address)
++    except KeyboardInterrupt:
++        print("NFE_UDP_PROXY: stopped", flush=True)
++    finally:
++        for address in list(peers):
++            remove_peer(address)
++        selector.close()
++        frontend.close()
++
++
++def main():
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("--listen-address", type=ipv4, required=True, help="IPv4 Host-Only de Debian")
++    parser.add_argument("--listen-port", type=port, default=7980)
++    parser.add_argument("--target-address", type=ipv4, required=True, help="IPv4 de minikube ip -p agones")
++    parser.add_argument("--target-port", type=port, default=7980)
++    args = parser.parse_args()
++    serve(args.listen_address, args.listen_port, args.target_address, args.target_port)
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/Infrastructure/Scripts/start-nfe-clients.ps1 b/Infrastructure/Scripts/start-nfe-clients.ps1
+new file mode 100644
+index 0000000..e6a2f57
+--- /dev/null
++++ b/Infrastructure/Scripts/start-nfe-clients.ps1
+@@ -0,0 +1,28 @@
++param(
++    [string]$Address = "127.0.0.1",
++    [ValidateRange(1, 65535)][int]$Port = 7980,
++    [ValidateRange(1, 4)][int]$Clients = 4
++)
++
++$ErrorActionPreference = "Stop"
++$parsedAddress = $null
++if (-not [System.Net.IPAddress]::TryParse($Address, [ref]$parsedAddress) -or
++    $parsedAddress.AddressFamily -ne [System.Net.Sockets.AddressFamily]::InterNetwork) {
++    throw "Address debe ser una IPv4, por ejemplo 127.0.0.1 o la IP Host-Only de Debian."
++}
++
++$projectRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot "../.."))
++$executable = Join-Path $projectRoot "Builds/NFE-WindowsClient/NetworkingLabNFEClient.exe"
++if (-not (Test-Path -LiteralPath $executable -PathType Leaf)) {
++    throw "Primero genera Networking Lab > NFE > Build Windows Client en Unity."
++}
++
++$logsDirectory = Join-Path $projectRoot "Logs/NFE"
++New-Item -ItemType Directory -Path $logsDirectory -Force | Out-Null
++$runId = Get-Date -Format "yyyyMMdd-HHmmss"
++for ($index = 1; $index -le $Clients; $index++) {
++    $logPath = Join-Path $logsDirectory "client-$runId-$index.log"
++    $arguments = '-nfe -client -address "{0}" -port {1} -logFile "{2}"' -f $parsedAddress, $Port, $logPath
++    Start-Process -FilePath $executable -ArgumentList $arguments -WorkingDirectory (Split-Path $executable)
++}
++Write-Host "Iniciados $Clients clientes hacia ${Address}:$Port. Logs: $logsDirectory"
+diff --git a/Infrastructure/Scripts/start-nfe-server.ps1 b/Infrastructure/Scripts/start-nfe-server.ps1
+new file mode 100644
+index 0000000..85a05e1
+--- /dev/null
++++ b/Infrastructure/Scripts/start-nfe-server.ps1
+@@ -0,0 +1,15 @@
++param([ValidateRange(1, 65535)][int]$Port = 7980)
++
++$ErrorActionPreference = "Stop"
++$projectRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot "../.."))
++$executable = Join-Path $projectRoot "Builds/NFE-WindowsServer/NetworkingLabNFEServer.exe"
++if (-not (Test-Path -LiteralPath $executable -PathType Leaf)) {
++    throw "Primero genera Networking Lab > NFE > Build Windows Server en Unity."
++}
++
++$logsDirectory = Join-Path $projectRoot "Logs/NFE"
++New-Item -ItemType Directory -Path $logsDirectory -Force | Out-Null
++$logPath = Join-Path $logsDirectory ("server-" + (Get-Date -Format "yyyyMMdd-HHmmss") + ".log")
++$arguments = '-batchmode -nographics -nfe -port {0} -logFile "{1}"' -f $Port, $logPath
++$process = Start-Process -FilePath $executable -ArgumentList $arguments -WorkingDirectory (Split-Path $executable) -PassThru
++Write-Host "Servidor NFE iniciado. PID: $($process.Id). UDP: $Port. Log: $logPath"
+diff --git a/README.md b/README.md
+index 973448b..483cc89 100644
+--- a/README.md
++++ b/README.md
+@@ -2,7 +2,9 @@
+ 
+ Este repositorio es un laboratorio universitario para construir y comprender un juego cliente-servidor con Unity. Compara el mismo gameplay mediante Netcode for GameObjects (NGO) y Netcode for Entities (NFE), y después lo lleva a un servidor Linux, contenedor, Kubernetes y Agones.
+ 
+-No es una solución multijugador terminada. El baseline local funciona y las escenas de red son bases estables con siete actividades `STUDENT TODO` que el estudiante debe completar.
++Esta copia incorpora las cuatro actividades NFE del Grupo 7. Los tres `STUDENT TODO` de NGO siguen pendientes para el responsable de esa parte. La compilación, los builds y la demostración con cuatro clientes deben ejecutarse en Unity y en Debian.
++
++**Para trabajar la parte NFE, comienza por [NFE Grupo 7: paso a paso](Docs/NFE_GRUPO7_PASO_A_PASO.md).**
+ 
+ ## Qué aprenderás
+ 
+@@ -38,15 +40,15 @@ El proyecto usa URP 17.6.0, Input System 1.20.0, NGO 2.13.3 embebido y Netcode f
+ 
+ ## Trabajo deliberadamente pendiente
+ 
+-Los siete objetivos se conservan en código con el marcador `STUDENT TODO`:
++Estado de los objetivos de programación:
+ 
+ 1. NGO-01: enviar input del owner al servidor.
+ 2. NGO-02: validar y aplicar movimiento autoritativo.
+ 3. NGO-03: solicitar, validar y distribuir PowerUp mediante RPC.
+-4. NFE-01: abrir `Listen` y realizar `Connect`.
+-5. NFE-02: entrar InGame, crear Ghost y establecer ownership.
+-6. NFE-03: mover en la simulación predicha.
+-7. NFE-04: procesar PowerUp y distribuir el resultado mediante RPC.
++4. NFE-01: `Listen` y `Connect` implementados; pendiente prueba en Unity.
++5. NFE-02: InGame, Ghost y ownership implementados; pendiente prueba en Unity.
++6. NFE-03: movimiento predicho implementado; pendiente prueba en Unity.
++7. NFE-04: PowerUp por RPC implementado; pendiente prueba en Unity.
+ 
+ La guía explica el código y cómo comprobar cada actividad. No copies una solución sin ejecutar y observar cada flujo.
+ 
+@@ -72,12 +74,12 @@ Incluido ahora:
+ 
+ Trabajo del estudiante:
+ 
+-- complete the seven `STUDENT TODO` activities;
++- complete and verify the three NGO activities, and verify the four implemented NFE activities;
+ - create Linux Dedicated Server builds;
+ - prepare Debian and host-only networking;
+ - build the server container;
+ - install Minikube and Agones;
+-- integrate the Agones lifecycle;
++- verify the NFE Agones lifecycle already implemented, and integrate the NGO lifecycle;
+ - deploy a GameServer and connect four clients.
+ 
+ Este starter no genera ni ejecuta un build Dedicated Server, una VM, una imagen de contenedor, un cluster Kubernetes ni un despliegue Agones.

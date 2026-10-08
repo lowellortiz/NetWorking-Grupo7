@@ -11,7 +11,9 @@ Los builds generados por `BuildTarget.StandaloneLinux64` son ejecutables ELF `x8
 - NGO: UDP 7979.
 - NFE: UDP 7980.
 
-La integración de ciclo de vida de Agones (`Ready` y `Health`) es una actividad del estudiante descrita en la guía; no está implementada en el starter.
+NFE incorpora `Ready` y `Health` en `NfeAgonesLifecycle`: se activa cuando existe `AGONES_SDK_HTTP_PORT`. Se debe verificar en el GameServer real. NGO conserva pendiente esa integración.
+
+Para construir solamente NFE, usa `bash Infrastructure/Scripts/build-nfe-image.sh`. No requiere un build NGO. Los pasos de Windows, Debian y la ruta UDP hacia Minikube están en [la guía NFE del Grupo 7](../Docs/NFE_GRUPO7_PASO_A_PASO.md).
 
 ## Flujo amd64
 
